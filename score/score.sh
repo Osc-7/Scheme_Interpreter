@@ -4,7 +4,7 @@ echo "This is a simple score shell script for you to find out problems in your p
 echo "--------------------------------------------------------------------------------"
 
 L=1
-R=20
+R=30
 
 for ((i = $L; i <= $R; i = i + 1))
 do
@@ -31,7 +31,7 @@ EOF
 done
 
 L_EXTRA=1
-R_EXTRA=1
+R_EXTRA=0
 for ((i = $L_EXTRA; i <= $R_EXTRA; i = i + 1))
 do
     echo ""

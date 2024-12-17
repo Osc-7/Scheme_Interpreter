@@ -70,8 +70,8 @@ Value Quote::eval(Assoc &e) {
     if (list->stxs.size() == 0) {
       return NullV();
     } else {
-      size_t sz = list->stxs.size();
-      if (sz == 3) {
+      size_t size = list->stxs.size();
+      if (size == 3) {
         auto isDot = dynamic_cast<Identifier *>(list->stxs[1].get());
         if (isDot && isDot->s == ".") {
           return PairV((Expr(new Quote(list->stxs[0]))).get()->eval(e),
@@ -79,7 +79,7 @@ Value Quote::eval(Assoc &e) {
         }
       }
       Value res = NullV();
-      for (int i = sz - 1; i >= 0; --i)
+      for (int i = size - 1; i >= 0; --i)
         res = PairV((Expr(new Quote(list->stxs[i]))).get()->eval(e), res);
       return res;
     }

@@ -71,6 +71,9 @@ Expr List::parse(Assoc &env) {
         return Expr(new Mult(stxs[1]->parse(env), stxs[2]->parse(env)));
       break;
     case E_EXIT:
+      if (stxs.size() != 1) {
+        throw(RuntimeError("wrong"));
+      }
       return Expr(new Exit());
       break;
     case E_PAIRQ:
@@ -133,6 +136,8 @@ Expr List::parse(Assoc &env) {
       return Expr(new Greater(stxs[1]->parse(env), stxs[2]->parse(env)));
       break;
     }
+    default:
+      throw(RuntimeError("what"));
     }
     // std::cout << "Here" << std::endl;
   }
@@ -226,6 +231,8 @@ Expr List::parse(Assoc &env) {
   default:
     throw RuntimeError("Unsupported operation: " + op);
   }
+
+  throw RuntimeError(" what ");
 }
 
 #endif
