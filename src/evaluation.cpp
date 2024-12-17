@@ -48,43 +48,46 @@ Value False::eval(Assoc &e) { return BooleanV(false); } // evaluation of #f
 Value Begin::eval(Assoc &e) {} // begin expression
 
 Value Quote::eval(Assoc &e) {
-  std::string typeof_stx = typeid(*(s.get())).name();
-  if (typeof_stx == "10TrueSyntax")
-    return BooleanV(true);
-  else if (typeof_stx == "11FalseSyntax")
+  auto bool_f = dynamic_cast<FalseSyntax *>(s.get());
+  if (bool_f)
     return BooleanV(false);
-  else if (typeof_stx == "4List") {
-    // 获取 List 中的元素
-    std::vector<Syntax> stxs_got = dynamic_cast<List *>(s.get())->stxs;
 
-    // 如果 List 是空的，返回 NullV
-    if (stxs_got.size() == 0) {
+  auto bool_t = dynamic_cast<TrueSyntax *>(s.get());
+  if (bool_t)
+    return BooleanV(true);
+
+  auto num = dynamic_cast<Number *>(s.get());
+  if (num)
+    return IntegerV(num->n);
+
+  auto iden = dynamic_cast<Identifier *>(s.get());
+  if (iden) {
+    return SymbolV(iden->s);
+  }
+
+  auto list = dynamic_cast<List *>(s.get());
+  if (list) {
+    if (list->stxs.size() == 0) {
       return NullV();
+    } else {
+      size_t sz = list->stxs.size();
+      if (sz == 3) {
+        auto isDot = dynamic_cast<Identifier *>(list->stxs[1].get());
+        if (isDot && isDot->s == ".") {
+          return PairV((Expr(new Quote(list->stxs[0]))).get()->eval(e),
+                       (Expr(new Quote(list->stxs[2]))).get()->eval(e));
+        }
+      }
+      Value res = NullV();
+      for (int i = sz - 1; i >= 0; --i)
+        res = PairV((Expr(new Quote(list->stxs[i]))).get()->eval(e), res);
+      return res;
     }
+  }
 
-    // 如果最后一个元素是 "."，则处理带点的 Pair
-    if (stxs_got.size() == 3 &&
-        dynamic_cast<Identifier *>(stxs_got[1].get())->s == ".") {
-      // 返回一个带点的 Pair
-      return PairV(stxs_got[0]->parse(e)->eval(e),
-                   stxs_got[2]->parse(e)->eval(e));
-    }
+  return NullV();
+} // quote expression
 
-    // 处理普通的列表，递归构造 Pair
-    Value now_pair =
-        PairV(stxs_got[stxs_got.size() - 1]->parse(e)->eval(e), NullV());
-    for (int i = stxs_got.size() - 2; i >= 0; i--) {
-      now_pair = PairV(stxs_got[i]->parse(e)->eval(e), now_pair);
-    }
-    return now_pair;
-
-  } else if (typeof_stx == "6Number")
-    return IntegerV(dynamic_cast<Number *>(s.get())->n);
-  else if (typeof_stx == "10Identifier")
-    return SymbolV(dynamic_cast<Identifier *>(s.get())->s);
-  else
-    throw(RuntimeError("Unknown quoted typename"));
-}
 Value MakeVoid::eval(Assoc &e) { return VoidV(); } // (void)
 
 Value Exit::eval(Assoc &e) { return TerminateV(); } // (exit)
