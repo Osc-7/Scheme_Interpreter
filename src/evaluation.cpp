@@ -14,24 +14,7 @@ Value Let::eval(Assoc &env) {} // let expression
 
 Value Lambda::eval(Assoc &env) {} // lambda expression
 
-Value Apply::eval(Assoc &e) {
-  // Assoc clos_env =
-  Value mid_fun = rator->eval(e);
-  Closure *clos_ptr = dynamic_cast<Closure *>(mid_fun.get());
-  // Closure* clos_ptr = dynamic_cast<Closure*>(rator->eval(e).get());
-  Assoc cur_env = clos_ptr->env;
-  std::vector<std::pair<std::string, Value>> tobind;
-  for (int i = 0; i < clos_ptr->parameters.size(); i++) {
-    tobind.push_back({clos_ptr->parameters[i], rand[i]->eval(e)});
-  }
-  for (auto binded_pair : tobind) {
-    // std::cout<<"!!binding "<<binded_pair.first<<" to ";
-    // binded_pair.second->show(std::cout);
-    // std::cout<<std::endl;
-    cur_env = extend(binded_pair.first, binded_pair.second, cur_env);
-  }
-  return clos_ptr->e->eval(cur_env);
-} // for function calling
+Value Apply::eval(Assoc &e) {} // for function calling
 
 Value Letrec::eval(Assoc &env) {} // letrec expression
 
