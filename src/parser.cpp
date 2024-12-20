@@ -76,12 +76,7 @@ Expr List::parse(Assoc &env) {
       }
       return Expr(new Exit());
       break;
-    case E_PAIRQ:
-      if (stxs.size() == 2) {
-        return Expr(new IsPair(stxs[1]->parse(env)));
-      }
-      throw(RuntimeError(" "));
-      break;
+
     case E_CONS:
       if (stxs.size() != 3) {
         throw RuntimeError("Wrong parameter number for: cons");
@@ -136,6 +131,46 @@ Expr List::parse(Assoc &env) {
       return Expr(new Greater(stxs[1]->parse(env), stxs[2]->parse(env)));
       break;
     }
+    case E_EQQ:
+      if (stxs.size() != 3)
+        throw RuntimeError("");
+      return Expr(new IsEq(stxs[1]->parse(env), stxs[2]->parse(env)));
+      break;
+    case E_NOT:
+      if (stxs.size() != 2)
+        throw RuntimeError("");
+      return Expr(new Not(stxs[1]->parse(env)));
+      break;
+    case E_INTQ:
+      if (stxs.size() == 2) {
+        return Expr(new IsFixnum(stxs[1]->parse(env)));
+      }
+      throw(RuntimeError(" "));
+      break;
+    case E_BOOLQ:
+      if (stxs.size() == 2) {
+        return Expr(new IsBoolean(stxs[1]->parse(env)));
+      }
+      throw(RuntimeError(" "));
+      break;
+    case E_NULLQ:
+      if (stxs.size() == 2) {
+        return Expr(new IsNull(stxs[1]->parse(env)));
+      }
+      throw(RuntimeError(" "));
+      break;
+    case E_PAIRQ:
+      if (stxs.size() == 2) {
+        return Expr(new IsPair(stxs[1]->parse(env)));
+      }
+      throw(RuntimeError(" "));
+      break;
+    case E_SYMBOLQ:
+      if (stxs.size() == 2) {
+        return Expr(new IsSymbol(stxs[1]->parse(env)));
+      }
+      throw(RuntimeError(" "));
+      break;
     default:
       throw(RuntimeError("what"));
     }
@@ -159,11 +194,11 @@ Expr List::parse(Assoc &env) {
         new If(stxs[1]->parse(env), stxs[2]->parse(env), stxs[3]->parse(env)));
   }
   case E_BEGIN: {
-    std::vector<Expr> passed_exprs;
+    std::vector<Expr> next_exprs;
     for (size_t i = 1; i < stxs.size(); ++i) {
-      passed_exprs.push_back(stxs[i]->parse(env));
+      next_exprs.push_back(stxs[i]->parse(env));
     }
-    return Expr(new Begin(passed_exprs));
+    return Expr(new Begin(next_exprs));
   }
   case E_QUOTE: {
     if (stxs.size() != 2) {

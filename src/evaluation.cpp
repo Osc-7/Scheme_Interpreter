@@ -18,17 +18,34 @@ Value Apply::eval(Assoc &e) {} // for function calling
 
 Value Letrec::eval(Assoc &env) {} // letrec expression
 
-Value Var::eval(Assoc &e) {} // evaluation of variable
+Value Var::eval(Assoc &e) { throw RuntimeError(" "); } // evaluation of variable
 
 Value Fixnum::eval(Assoc &e) { return IntegerV(n); } // evaluation of a fixnum
 
-Value If::eval(Assoc &e) {} // if expression
+Value If::eval(Assoc &e) {
+  Value res = cond->eval(e);
+  // 先算出结果？
+  auto bool_res = dynamic_cast<Boolean *>(res.get()); // 判断结果真假
+  if (bool_res && bool_res->b == false)
+    return alter->eval(e);
+  else
+    return conseq->eval(e);
+}
+// if expression
 
 Value True::eval(Assoc &e) { return BooleanV(true); } // evaluation of #t
 
 Value False::eval(Assoc &e) { return BooleanV(false); } // evaluation of #f
 
-Value Begin::eval(Assoc &e) {} // begin expression
+Value Begin::eval(Assoc &e) {
+  if (es.size() == 0)
+    return NullV();
+  for (int i = 0; i < es.size(); i++) {
+    es[i]->eval(e); // 直接调用对应版本的eval，如果有错就会报RE
+  }
+
+  return es[es.size() - 1]->eval(e);
+} // begin expression
 
 Value Quote::eval(Assoc &e) {
   auto bool_f = dynamic_cast<FalseSyntax *>(s.get());
@@ -148,7 +165,28 @@ Value Greater::evalRator(const Value &rand1, const Value &rand2) {
   throw(RuntimeError(" "));
 } // >
 
-Value IsEq::evalRator(const Value &rand1, const Value &rand2) {} // eq?
+Value IsEq::evalRator(const Value &rand1, const Value &rand2) {
+  if (rand1->v_type == V_INT and rand2->v_type == V_INT)
+    return BooleanV((dynamic_cast<Integer *>(rand1.get())->n) ==
+                    (dynamic_cast<Integer *>(rand2.get())->n));
+  else if (rand1->v_type == V_BOOL and rand2->v_type == V_BOOL)
+    return BooleanV((dynamic_cast<Boolean *>(rand1.get())->b) ==
+                    (dynamic_cast<Boolean *>(rand2.get())->b));
+  else if (rand1->v_type == V_SYM and rand2->v_type == V_SYM)
+    return BooleanV((dynamic_cast<Symbol *>(rand1.get())->s) ==
+                    (dynamic_cast<Symbol *>(rand2.get())->s));
+
+  if ((dynamic_cast<Null *>(rand1.get()) ||
+       dynamic_cast<Void *>(rand1.get())) &&
+      (dynamic_cast<Null *>(rand2.get()) ||
+       dynamic_cast<Void *>(rand2.get()))) {
+    return BooleanV(true);
+  }
+
+  else {
+    return BooleanV(rand1.get() == rand2.get());
+  }
+} // eq?
 
 Value Cons::evalRator(const Value &rand1, const Value &rand2) {
   return Value(new Pair(rand1, rand2));
@@ -160,8 +198,8 @@ Value IsBoolean::evalRator(const Value &rand) {
 } // boolean?
 
 Value IsFixnum::evalRator(const Value &rand) {
-  bool is_fixnum = dynamic_cast<Fixnum *>(rand.get()) != nullptr;
-  return IntegerV(is_fixnum);
+  bool is_fixnum = dynamic_cast<Integer *>(rand.get()) != nullptr;
+  return BooleanV(is_fixnum);
 } // fixnum?
 
 Value IsSymbol::evalRator(const Value &rand) {
@@ -183,7 +221,16 @@ Value IsPair::evalRator(const Value &rand) {
 
 Value IsProcedure::evalRator(const Value &rand) {} // procedure?
 
-Value Not::evalRator(const Value &rand) {} // not
+Value Not::evalRator(const Value &rand) {
+  // auto bool_f = dynamic_cast<FalseSyntax *>(s.get());
+
+  if (rand->v_type == V_BOOL and
+      (dynamic_cast<Boolean *>(rand.get())->b == false)) {
+    return BooleanV(true);
+  } else {
+    return BooleanV(false);
+  }
+} // not
 
 Value Car::evalRator(const Value &rand) {
   // 检查 rand 是否是 Pair 类型
