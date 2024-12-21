@@ -29,9 +29,9 @@ Expr Number::parse(Assoc &env) { return Expr(new Fixnum(n)); }
 
 Expr Identifier::parse(Assoc &env) {
   Value res = find(s, env);
-  if (res.get())
+  if (res.get()) {
     return Expr(new Var(s));
-
+  }
   switch (primitives[s]) {
   case E_VOID:
   case E_EXIT: {
@@ -295,26 +295,27 @@ Expr List::parse(Assoc &env) {
     if (stxs.size() != 3) {
       throw RuntimeError("Wrong parameter number for: " + op);
     }
+    // std::cout << "fucking here" << std::endl;
+    auto args = (dynamic_cast<List *>(stxs[1].get()))->stxs;
+    vector<string> transformedArgs;
 
-    auto *binder_list_ptr = dynamic_cast<List *>(stxs[1].get());
-    if (!binder_list_ptr) {
-      throw RuntimeError("Invalid lambda parameter list");
+    Assoc env1 = env;
+
+    for (auto &syn : args) {
+      string s = dynamic_cast<Identifier *>(syn.get())->s;
+      transformedArgs.push_back(s);
+      if (!find(s, env).get())
+        env1 = extend(s, VoidV(), env1);
     }
 
-    std::vector<std::string> binded_vector;
-    for (const auto &stx : binder_list_ptr->stxs) {
-      auto *temp_id = dynamic_cast<Identifier *>(stx.get());
-      if (!temp_id) {
-        throw RuntimeError("Invalid parameter in lambda");
-      }
-      binded_vector.push_back(temp_id->s);
-    }
-    return Expr(new Lambda(binded_vector, stxs[2]->parse(env)));
+    return Expr(new Lambda(transformedArgs, stxs[2].parse(env1)));
   }
   case E_LET: {
     // 检查参数数量是否正确
     if (stxs.size() != 3) {
-      throw RuntimeError("Wrong parameter number for let");
+      throw RuntimeError("Line " + std::to_string(__LINE__) +
+                         " expect 2 argument(s), found " +
+                         std::to_string(stxs.size() - 1));
     }
 
     // 存储绑定的变量名和值对
@@ -322,21 +323,24 @@ Expr List::parse(Assoc &env) {
     auto *binder_list_ptr = dynamic_cast<List *>(stxs[1].get());
 
     if (!binder_list_ptr) {
-      throw RuntimeError("Invalid binding list for let");
+      throw RuntimeError("Line " + std::to_string(__LINE__) +
+                         ": Invalid binding list for let");
     }
 
     // 遍历绑定列表中的每一项
     for (const auto &stx_tobind_raw : binder_list_ptr->stxs) {
       auto *stx_tobind = dynamic_cast<List *>(stx_tobind_raw.get());
       if (!stx_tobind || stx_tobind->stxs.size() != 2) {
-        throw RuntimeError("Invalid binding in let: each binding must have "
+        throw RuntimeError("Line " + std::to_string(__LINE__) +
+                           ": Invalid binding in let: each binding must have "
                            "exactly two elements");
       }
 
       // 解析绑定的变量名
       auto *temp_id = dynamic_cast<Identifier *>(stx_tobind->stxs[0].get());
       if (!temp_id) {
-        throw RuntimeError("Invalid variable name in let binding");
+        throw RuntimeError("Line " + std::to_string(__LINE__) +
+                           ": Invalid variable name in let binding");
       }
 
       std::string var_name = temp_id->s;
@@ -356,7 +360,10 @@ Expr List::parse(Assoc &env) {
   case E_LETREC: {
     // 检查参数数量是否正确
     if (stxs.size() != 3) {
-      throw RuntimeError("Wrong parameter number for letrec");
+      // std::cout << "I supposed" << std::endl;
+      throw RuntimeError("Line " + std::to_string(__LINE__) +
+                         " expect 2 argument(s), found " +
+                         std::to_string(stxs.size() - 1));
     }
 
     // 存储绑定的变量名和值对
@@ -364,21 +371,25 @@ Expr List::parse(Assoc &env) {
     auto *binder_list_ptr = dynamic_cast<List *>(stxs[1].get());
 
     if (!binder_list_ptr) {
-      throw RuntimeError("Invalid binding list for letrec");
+      // std::cout << "????" << std::endl;
+      throw RuntimeError("Line " + std::to_string(__LINE__) +
+                         ": Invalid binding list for letrec");
     }
 
     // 遍历绑定列表中的每一项
     for (const auto &stx_tobind_raw : binder_list_ptr->stxs) {
       auto *stx_tobind = dynamic_cast<List *>(stx_tobind_raw.get());
       if (!stx_tobind || stx_tobind->stxs.size() != 2) {
-        throw RuntimeError("Invalid binding in letrec: each binding must have "
-                           "exactly two elements");
+        throw RuntimeError("Line " + std::to_string(__LINE__) +
+                           ": Invalid binding in letrec: each binding must "
+                           "have exactly two elements");
       }
 
       // 解析绑定的变量名
       auto *temp_id = dynamic_cast<Identifier *>(stx_tobind->stxs[0].get());
       if (!temp_id) {
-        throw RuntimeError("Invalid variable name in letrec binding");
+        throw RuntimeError("Line " + std::to_string(__LINE__) +
+                           ": Invalid variable name in letrec binding");
       }
 
       std::string var_name = temp_id->s;
@@ -394,13 +405,10 @@ Expr List::parse(Assoc &env) {
     // 构造 Letrec 表达式并返回
     return Expr(new Letrec(binded_vector, stxs[2]->parse(env)));
   }
+
   default:
     throw RuntimeError("Unsupported operation: " + op);
   }
-  vector<Expr> rands;
-  for (size_t i = 1; i < stxs.size(); ++i)
-    rands.push_back(stxs[i].parse(env));
-  return Expr(new Apply(new Var(op), rands));
 
   auto list = dynamic_cast<List *>(stxs[0].get());
   if (list) {
@@ -412,6 +420,7 @@ Expr List::parse(Assoc &env) {
     }
     return Expr(new Apply(stxs[0].parse(env), rands));
   }
+  // std::cout << "we end up here???" << std::endl;
   throw RuntimeError(" what ");
 }
 
