@@ -28,10 +28,19 @@ Expr Syntax ::parse(Assoc &env) {
 Expr Number::parse(Assoc &env) { return Expr(new Fixnum(n)); }
 
 Expr Identifier::parse(Assoc &env) {
+  // 首先查找是否是变量，如果是变量，则返回对应的 Expr
   Value res = find(s, env);
   if (res.get()) {
     return Expr(new Var(s));
   }
+
+  // 检查是否是保留字
+  auto it = reserved_words.find(s);
+  if (it != reserved_words.end()) {
+    // 如果是保留字，则根据 ExprType 进行不同的处理
+    ExprType op_type = it->second;
+  }
+
   switch (primitives[s]) {
   case E_VOID:
   case E_EXIT: {
@@ -120,8 +129,15 @@ Expr List::parse(Assoc &env) {
     }
     return Expr(new Apply(opexpr, to_expr));
   }
-
   string op = id->s;
+  Value res = find(op, env);
+  if (res.get()) {
+    vector<Expr> rands;
+    for (size_t i = 1; i < stxs.size(); ++i)
+      rands.push_back(stxs[i].parse(env));
+    return Expr(new Apply(new Var(op), rands));
+  }
+
   // std::cout << "Here" << std::endl;
 
   // 检查是否是基本运算符
@@ -409,10 +425,6 @@ Expr List::parse(Assoc &env) {
   default:
     throw RuntimeError("Unsupported operation: " + op);
   }
-  vector<Expr> rands;
-  for (size_t i = 1; i < stxs.size(); ++i)
-    rands.push_back(stxs[i].parse(env));
-  return Expr(new Apply(new Var(op), rands));
 
   auto list = dynamic_cast<List *>(stxs[0].get());
   if (list) {
