@@ -397,7 +397,21 @@ Expr List::parse(Assoc &env) {
   default:
     throw RuntimeError("Unsupported operation: " + op);
   }
+  vector<Expr> rands;
+  for (size_t i = 1; i < stxs.size(); ++i)
+    rands.push_back(stxs[i].parse(env));
+  return Expr(new Apply(new Var(op), rands));
 
+  auto list = dynamic_cast<List *>(stxs[0].get());
+  if (list) {
+
+    vector<Expr> rands;
+    for (size_t i = 1; i < stxs.size(); ++i) {
+      Expr e = stxs[i].parse(env);
+      rands.push_back(e);
+    }
+    return Expr(new Apply(stxs[0].parse(env), rands));
+  }
   throw RuntimeError(" what ");
 }
 

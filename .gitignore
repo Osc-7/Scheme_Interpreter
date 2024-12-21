@@ -5,3 +5,4 @@ myscheme
 score/*.txt
 score/*.out
 generator.py
+new.cpp
