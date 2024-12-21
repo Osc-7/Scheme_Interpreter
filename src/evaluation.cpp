@@ -234,10 +234,11 @@ Value IsEq::evalRator(const Value &rand1, const Value &rand2) {
     return BooleanV((dynamic_cast<Symbol *>(rand1.get())->s) ==
                     (dynamic_cast<Symbol *>(rand2.get())->s));
 
-  if ((dynamic_cast<Null *>(rand1.get()) ||
-       dynamic_cast<Void *>(rand1.get())) &&
-      (dynamic_cast<Null *>(rand2.get()) ||
-       dynamic_cast<Void *>(rand2.get()))) {
+  if (dynamic_cast<Null *>(rand1.get()) &&
+      (dynamic_cast<Null *>(rand2.get()))) {
+    return BooleanV(true);
+  }
+  if (dynamic_cast<Void *>(rand1.get()) && dynamic_cast<Void *>(rand2.get())) {
     return BooleanV(true);
   }
 

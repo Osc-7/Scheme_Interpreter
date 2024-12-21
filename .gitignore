@@ -3,5 +3,5 @@ myscheme
 .vscode
 
 score/*.txt
-
 score/*.out
+generator.py
