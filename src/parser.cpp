@@ -19,7 +19,11 @@ using std ::vector;
 extern std ::map<std ::string, ExprType> primitives;
 extern std ::map<std ::string, ExprType> reserved_words;
 
-Expr Syntax ::parse(Assoc &env) {}
+Expr Syntax ::parse(Assoc &env) {
+  if (get() == nullptr)
+    throw RuntimeError("unexpected EOF");
+  return get()->parse(env);
+}
 
 Expr Number::parse(Assoc &env) { return Expr(new Fixnum(n)); }
 
@@ -171,6 +175,13 @@ Expr List::parse(Assoc &env) {
       }
       throw(RuntimeError(" "));
       break;
+    case E_PROCQ:
+      if (stxs.size() != 2) {
+        // std::cout << "here" << std::endl;
+        throw(RuntimeError("wrong parameter number"));
+      } else
+        return Expr(new IsProcedure(stxs[1]->parse(env)));
+      break;
     default:
       throw(RuntimeError("what"));
     }
@@ -228,40 +239,88 @@ Expr List::parse(Assoc &env) {
     }
     return Expr(new Lambda(binded_vector, stxs[2]->parse(env)));
   }
-  case E_LET:
-  case E_LETREC: {
+  case E_LET: {
+    // 检查参数数量是否正确
     if (stxs.size() != 3) {
-      throw RuntimeError("Wrong parameter number for: " + op);
+      throw RuntimeError("Wrong parameter number for let");
     }
 
-    auto *binder_list_ptr = dynamic_cast<List *>(stxs[1].get());
-    if (!binder_list_ptr) {
-      throw RuntimeError("Invalid binding in " + op);
-    }
-
+    // 存储绑定的变量名和值对
     std::vector<std::pair<std::string, Expr>> binded_vector;
+    auto *binder_list_ptr = dynamic_cast<List *>(stxs[1].get());
+
+    if (!binder_list_ptr) {
+      throw RuntimeError("Invalid binding list for let");
+    }
+
+    // 遍历绑定列表中的每一项
     for (const auto &stx_tobind_raw : binder_list_ptr->stxs) {
       auto *stx_tobind = dynamic_cast<List *>(stx_tobind_raw.get());
       if (!stx_tobind || stx_tobind->stxs.size() != 2) {
-        throw RuntimeError("Invalid binding in " + op);
+        throw RuntimeError("Invalid binding in let: each binding must have "
+                           "exactly two elements");
       }
 
+      // 解析绑定的变量名
       auto *temp_id = dynamic_cast<Identifier *>(stx_tobind->stxs[0].get());
       if (!temp_id) {
-        throw RuntimeError("Invalid variable name in " + op + " binding");
+        throw RuntimeError("Invalid variable name in let binding");
       }
 
       std::string var_name = temp_id->s;
+
+      // 为绑定的变量名在环境中预留空间
       env = extend(var_name, NullV(), env);
+
+      // 解析绑定的表达式
       Expr temp_store = stx_tobind->stxs[1]->parse(env);
       binded_vector.emplace_back(var_name, temp_store);
     }
 
-    if (op_type == E_LET) {
-      return Expr(new Let(binded_vector, stxs[2]->parse(env)));
-    } else { // E_LETREC
-      return Expr(new Letrec(binded_vector, stxs[2]->parse(env)));
+    // 构造 Let 表达式并返回
+    return Expr(new Let(binded_vector, stxs[2]->parse(env)));
+  }
+
+  case E_LETREC: {
+    // 检查参数数量是否正确
+    if (stxs.size() != 3) {
+      throw RuntimeError("Wrong parameter number for letrec");
     }
+
+    // 存储绑定的变量名和值对
+    std::vector<std::pair<std::string, Expr>> binded_vector;
+    auto *binder_list_ptr = dynamic_cast<List *>(stxs[1].get());
+
+    if (!binder_list_ptr) {
+      throw RuntimeError("Invalid binding list for letrec");
+    }
+
+    // 遍历绑定列表中的每一项
+    for (const auto &stx_tobind_raw : binder_list_ptr->stxs) {
+      auto *stx_tobind = dynamic_cast<List *>(stx_tobind_raw.get());
+      if (!stx_tobind || stx_tobind->stxs.size() != 2) {
+        throw RuntimeError("Invalid binding in letrec: each binding must have "
+                           "exactly two elements");
+      }
+
+      // 解析绑定的变量名
+      auto *temp_id = dynamic_cast<Identifier *>(stx_tobind->stxs[0].get());
+      if (!temp_id) {
+        throw RuntimeError("Invalid variable name in letrec binding");
+      }
+
+      std::string var_name = temp_id->s;
+
+      // 为绑定的变量名在环境中预留空间
+      env = extend(var_name, NullV(), env);
+
+      // 解析绑定的表达式
+      Expr temp_store = stx_tobind->stxs[1]->parse(env);
+      binded_vector.emplace_back(var_name, temp_store);
+    }
+
+    // 构造 Letrec 表达式并返回
+    return Expr(new Letrec(binded_vector, stxs[2]->parse(env)));
   }
   default:
     throw RuntimeError("Unsupported operation: " + op);

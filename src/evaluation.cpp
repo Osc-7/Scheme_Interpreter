@@ -10,15 +10,59 @@
 extern std ::map<std ::string, ExprType> primitives;
 extern std ::map<std ::string, ExprType> reserved_words;
 
-Value Let::eval(Assoc &env) {} // let expression
+Value Let::eval(Assoc &env) {
+  Assoc env1 = env;
+  for (auto &i : bind) {
+    env1 = extend(i.first, i.second.get()->eval(env), env1);
+  }
+  return body.get()->eval(env1);
+} // let expression
 
-Value Lambda::eval(Assoc &env) {} // lambda expression
+Value Lambda::eval(Assoc &env) {
+  Assoc new_env = env;
+  return ClosureV(x, e, new_env);
+} // lambda expression
 
-Value Apply::eval(Assoc &e) {} // for function calling
+Value Apply::eval(Assoc &e) {
+  Value rator = this->rator.get()->eval(e);
 
-Value Letrec::eval(Assoc &env) {} // letrec expression
+  auto clos = dynamic_cast<Closure *>(rator.get());
+  if (clos) {
+    if (clos->parameters.size() != this->rand.size()) {
+      throw RuntimeError(" ");
+    }
 
-Value Var::eval(Assoc &e) { throw RuntimeError(" "); } // evaluation of variable
+    Assoc env1 = Assoc(clos->env);
+    for (size_t i = 0; i < clos->parameters.size(); ++i) {
+      env1 = extend(clos->parameters[i], this->rand[i].get()->eval(e), env1);
+    }
+
+    return clos->e.get()->eval(env1);
+  }
+
+  throw RuntimeError(" ");
+  return clos->e.get()->eval(e);
+} // for function calling
+
+Value Letrec::eval(Assoc &env) {
+  std::vector<Value> values;
+  Assoc new_env = env;
+  for (int i = 0; i < bind.size(); i++)
+    new_env = extend(bind[i].first, Value(NULL), new_env);
+  for (int i = 0; i < bind.size(); i++)
+    values.push_back(bind[i].second->eval(new_env));
+  for (int i = 0; i < bind.size(); i++)
+    modify(bind[i].first, values[i], new_env);
+  return body->eval(new_env);
+} // letrec expression
+
+Value Var::eval(Assoc &e) {
+  Value res = find(x, e);
+  if (res.get())
+    return res;
+  else
+    throw RuntimeError(" ");
+} // evaluation of variable
 
 Value Fixnum::eval(Assoc &e) { return IntegerV(n); } // evaluation of a fixnum
 
@@ -48,22 +92,18 @@ Value Begin::eval(Assoc &e) {
 } // begin expression
 
 Value Quote::eval(Assoc &e) {
-  // 检查是否是 FalseSyntax
   auto bool_f = dynamic_cast<FalseSyntax *>(s.get());
   if (bool_f)
     return BooleanV(false);
 
-  // 检查是否是 TrueSyntax
   auto bool_t = dynamic_cast<TrueSyntax *>(s.get());
   if (bool_t)
     return BooleanV(true);
 
-  // 检查是否是 Number
   auto num = dynamic_cast<Number *>(s.get());
   if (num)
     return IntegerV(num->n);
 
-  // 检查是否是 Identifier
   auto iden = dynamic_cast<Identifier *>(s.get());
   if (iden) {
     return SymbolV(iden->s);
@@ -103,7 +143,7 @@ Value Quote::eval(Assoc &e) {
     }
   }
 
-  return NullV(); // 默认返回 NullV
+  return NullV();
 }
 
 Value MakeVoid::eval(Assoc &e) { return VoidV(); } // (void)
@@ -237,7 +277,13 @@ Value IsPair::evalRator(const Value &rand) {
   return BooleanV(is_pair);
 } // pair?
 
-Value IsProcedure::evalRator(const Value &rand) {} // procedure?
+Value IsProcedure::evalRator(const Value &rand) {
+  auto ptr = dynamic_cast<Closure *>(rand.get());
+  if (ptr)
+    return BooleanV(true);
+  else
+    return BooleanV(false);
+} // procedure?
 
 Value Not::evalRator(const Value &rand) {
   // auto bool_f = dynamic_cast<FalseSyntax *>(s.get());
