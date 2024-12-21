@@ -48,22 +48,18 @@ Value Begin::eval(Assoc &e) {
 } // begin expression
 
 Value Quote::eval(Assoc &e) {
-  // 检查是否是 FalseSyntax
   auto bool_f = dynamic_cast<FalseSyntax *>(s.get());
   if (bool_f)
     return BooleanV(false);
 
-  // 检查是否是 TrueSyntax
   auto bool_t = dynamic_cast<TrueSyntax *>(s.get());
   if (bool_t)
     return BooleanV(true);
 
-  // 检查是否是 Number
   auto num = dynamic_cast<Number *>(s.get());
   if (num)
     return IntegerV(num->n);
 
-  // 检查是否是 Identifier
   auto iden = dynamic_cast<Identifier *>(s.get());
   if (iden) {
     return SymbolV(iden->s);
@@ -71,39 +67,61 @@ Value Quote::eval(Assoc &e) {
 
   // 检查是否是 List
   auto list = dynamic_cast<List *>(s.get());
-  if (list) {
-    if (list->stxs.size() == 0) {
-      return NullV(); // 空列表返回 NullV
+  if (list != nullptr) {
+    // 确保列表存在
+    if (list->stxs.empty()) {
+      return NullV();
     } else {
       size_t size = list->stxs.size();
       if (size == 3) {
         auto isDot = dynamic_cast<Identifier *>(list->stxs[1].get());
-        if (isDot && isDot->s == ".") {
+        if (isDot != nullptr && isDot->s == ".") {
+
+          auto dot1 = dynamic_cast<Identifier *>(list->stxs[0].get());
+          auto dot2 = dynamic_cast<Identifier *>(list->stxs[2].get());
+          if (dot1 || dot2) {
+            throw RuntimeError("Malformed pair structure in (a . b)");
+          }
           return PairV((Expr(new Quote(list->stxs[0]))).get()->eval(e),
                        (Expr(new Quote(list->stxs[2]))).get()->eval(e));
         }
       }
 
-      auto isDot = dynamic_cast<Identifier *>(list->stxs[size - 2].get());
-      if (isDot && isDot->s == ".") {
-        Value tail = (Expr(new Quote(list->stxs[size - 1]))).get()->eval(e);
-        for (int i = size - 3; i >= 0; --i) {
-          tail = PairV((Expr(new Quote(list->stxs[i]))).get()->eval(e), tail);
+      if (size >= 3) {
+        auto isDot = dynamic_cast<Identifier *>(list->stxs[size - 2].get());
+        if (isDot != nullptr && isDot->s == ".") {
+          // 检查尾部元素的有效性
+          auto t = dynamic_cast<Identifier *>(list->stxs[size - 1].get());
+          if (!t) {
+            throw RuntimeError("Malformed list ending with .");
+          }
+          Value tail = (Expr(new Quote(list->stxs[size - 1]))).get()->eval(e);
+
+          for (int i = size - 3; i >= 0; --i) {
+            auto element = dynamic_cast<Identifier *>(list->stxs[i].get());
+            if (!element) {
+              throw RuntimeError("Malformed list with invalid element.");
+            }
+            tail = PairV((Expr(new Quote(list->stxs[i]))).get()->eval(e), tail);
+          }
+          return tail;
         }
-        return tail;
       }
 
       // 处理普通列表 (a b c ...)
       Value res = NullV();
       for (int i = size - 1; i >= 0; --i) {
+        auto element = dynamic_cast<Identifier *>(list->stxs[i].get());
+
+        if (!element) {
+          throw RuntimeError("Malformed list with invalid element.");
+        }
         res = PairV((Expr(new Quote(list->stxs[i]))).get()->eval(e), res);
-        // std::cout << "Quote: " << res << std::endl;
       }
       return res;
     }
   }
-
-  return NullV(); // 默认返回 NullV
+  return NullV();
 }
 
 Value MakeVoid::eval(Assoc &e) { return VoidV(); } // (void)
