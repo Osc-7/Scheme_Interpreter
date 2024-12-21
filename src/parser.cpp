@@ -27,7 +27,79 @@ Expr Syntax ::parse(Assoc &env) {
 
 Expr Number::parse(Assoc &env) { return Expr(new Fixnum(n)); }
 
-Expr Identifier::parse(Assoc &env) { return Expr(new Var(s)); }
+Expr Identifier::parse(Assoc &env) {
+  Value res = find(s, env);
+  if (res.get())
+    return Expr(new Var(s));
+
+  switch (primitives[s]) {
+  case E_VOID:
+  case E_EXIT: {
+    List *st = new List();
+    st->stxs.push_back(Syntax(new Identifier("lambda")));
+
+    st->stxs.push_back(new List());
+
+    List *stx = new List();
+    stx->stxs.push_back(Syntax(new Identifier(s)));
+    st->stxs.push_back(stx);
+
+    return st->parse(env);
+  }
+
+  case E_MUL:
+  case E_MINUS:
+  case E_PLUS:
+  case E_LT:
+  case E_LE:
+  case E_EQ:
+  case E_GE:
+  case E_GT:
+  case E_EQQ:
+  case E_CONS: {
+    List *args = new List();
+    args->stxs.push_back(Syntax(new Identifier("x")));
+    args->stxs.push_back(Syntax(new Identifier("y")));
+    List *stx = new List();
+    stx->stxs.push_back(Syntax(new Identifier(s)));
+    stx->stxs.push_back(Syntax(new Identifier("x")));
+    stx->stxs.push_back(Syntax(new Identifier("y")));
+    List *st = new List();
+    st->stxs.push_back(Syntax(new Identifier("lambda")));
+    st->stxs.push_back(args);
+    st->stxs.push_back(stx);
+
+    return st->parse(env);
+  }
+
+  case E_BOOLQ:
+  case E_INTQ:
+  case E_NULLQ:
+  case E_PAIRQ:
+  case E_PROCQ:
+  case E_SYMBOLQ:
+  case E_NOT:
+  case E_CAR:
+  case E_CDR: {
+    List *args = new List();
+    args->stxs.push_back(Syntax(new Identifier("x")));
+    List *stx = new List();
+    stx->stxs.push_back(Syntax(new Identifier(s)));
+    stx->stxs.push_back(Syntax(new Identifier("x")));
+    List *st = new List();
+    st->stxs.push_back(Syntax(new Identifier("lambda")));
+    st->stxs.push_back(args);
+    st->stxs.push_back(stx);
+
+    return st->parse(env);
+  }
+
+  default:
+    break;
+  }
+
+  return Expr(new Var(s));
+}
 
 Expr TrueSyntax::parse(Assoc &env) { return Expr(new True()); }
 
