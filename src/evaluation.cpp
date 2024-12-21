@@ -48,27 +48,32 @@ Value Begin::eval(Assoc &e) {
 } // begin expression
 
 Value Quote::eval(Assoc &e) {
+  // 检查是否是 FalseSyntax
   auto bool_f = dynamic_cast<FalseSyntax *>(s.get());
   if (bool_f)
     return BooleanV(false);
 
+  // 检查是否是 TrueSyntax
   auto bool_t = dynamic_cast<TrueSyntax *>(s.get());
   if (bool_t)
     return BooleanV(true);
 
+  // 检查是否是 Number
   auto num = dynamic_cast<Number *>(s.get());
   if (num)
     return IntegerV(num->n);
 
+  // 检查是否是 Identifier
   auto iden = dynamic_cast<Identifier *>(s.get());
   if (iden) {
     return SymbolV(iden->s);
   }
 
+  // 检查是否是 List
   auto list = dynamic_cast<List *>(s.get());
   if (list) {
     if (list->stxs.size() == 0) {
-      return NullV();
+      return NullV(); // 空列表返回 NullV
     } else {
       size_t size = list->stxs.size();
       if (size == 3) {
@@ -78,15 +83,28 @@ Value Quote::eval(Assoc &e) {
                        (Expr(new Quote(list->stxs[2]))).get()->eval(e));
         }
       }
+
+      auto isDot = dynamic_cast<Identifier *>(list->stxs[size - 2].get());
+      if (isDot && isDot->s == ".") {
+        Value tail = (Expr(new Quote(list->stxs[size - 1]))).get()->eval(e);
+        for (int i = size - 3; i >= 0; --i) {
+          tail = PairV((Expr(new Quote(list->stxs[i]))).get()->eval(e), tail);
+        }
+        return tail;
+      }
+
+      // 处理普通列表 (a b c ...)
       Value res = NullV();
-      for (int i = size - 1; i >= 0; --i)
+      for (int i = size - 1; i >= 0; --i) {
         res = PairV((Expr(new Quote(list->stxs[i]))).get()->eval(e), res);
+        // std::cout << "Quote: " << res << std::endl;
+      }
       return res;
     }
   }
 
-  return NullV();
-} // quote expression
+  return NullV(); // 默认返回 NullV
+}
 
 Value MakeVoid::eval(Assoc &e) { return VoidV(); } // (void)
 
