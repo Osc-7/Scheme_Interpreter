@@ -40,7 +40,7 @@ Value Apply::eval(Assoc &e) {
     return clos->e.get()->eval(env1);
   }
 
-  throw RuntimeError(" ");
+  throw RuntimeError("fuction calling wrong");
   return clos->e.get()->eval(e);
 } // for function calling
 

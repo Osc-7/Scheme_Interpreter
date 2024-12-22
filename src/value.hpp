@@ -106,6 +106,15 @@ struct String : ValueBase {
 };
 Value StringV(const std ::string &);
 
+// credit: reqway
+// 我真的自己想不到这么简洁的实现qwq
+struct Expression : ValueBase {
+  Expr e;
+  Expression(const Expr &);
+  virtual void show(std::ostream &) override;
+};
+Value ExpressionV(const Expr &);
+
 std::ostream &operator<<(std::ostream &, Value &);
 
 Assoc empty();

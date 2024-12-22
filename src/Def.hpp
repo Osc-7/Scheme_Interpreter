@@ -60,6 +60,7 @@ enum ValueType {
   V_VOID,
   V_PRIMITIVE,
   V_TERMINATE,
+  V_EXPRESSION,
 };
 
 void initPrimitives();

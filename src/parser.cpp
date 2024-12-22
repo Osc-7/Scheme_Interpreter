@@ -34,12 +34,14 @@ Expr Identifier::parse(Assoc &env) {
     return Expr(new Var(s));
   }
 
+  /*
   // 检查是否是保留字
   auto it = reserved_words.find(s);
   if (it != reserved_words.end()) {
     // 如果是保留字，则根据 ExprType 进行不同的处理
     ExprType op_type = it->second;
   }
+  */
 
   switch (primitives[s]) {
   case E_VOID:
@@ -127,14 +129,17 @@ Expr List::parse(Assoc &env) {
     auto reserved = reserved_words.find(op);
 
     Value res = find(op, env);
-
-    if (res.get()) { // 如果为真，跳过以下逻辑
+    // std::cout << res.ptr << std::endl;
+    if (res.get()) {
+      // std::cout << "0" << std::endl; // 如果为真，跳过以下逻辑
     } else {
       // std::cout << "Here" << std::endl;
 
       // 检查是否是基本运算符
       if (prim == primitives.end() && !stxs.size()) {
         vector<Expr> rands;
+        // std::cout << "1" << std::endl;
+
         return Expr(new Apply(Expr(new Var(op)), rands));
       } else if (prim != primitives.end()) {
         switch (primitives[op]) {
@@ -183,7 +188,7 @@ Expr List::parse(Assoc &env) {
           break;
         case E_VOID:
           if (stxs.size() != 1) {
-            throw RuntimeError(" ");
+            throw RuntimeError("void");
           }
           return Expr(new MakeVoid());
           break;
@@ -219,43 +224,43 @@ Expr List::parse(Assoc &env) {
         }
         case E_EQQ:
           if (stxs.size() != 3)
-            throw RuntimeError("");
+            throw RuntimeError("eqq");
           return Expr(new IsEq(stxs[1]->parse(env), stxs[2]->parse(env)));
           break;
         case E_NOT:
           if (stxs.size() != 2)
-            throw RuntimeError("");
+            throw RuntimeError("not");
           return Expr(new Not(stxs[1]->parse(env)));
           break;
         case E_INTQ:
           if (stxs.size() == 2) {
             return Expr(new IsFixnum(stxs[1]->parse(env)));
           }
-          throw(RuntimeError(" "));
+          throw(RuntimeError("intq"));
           break;
         case E_BOOLQ:
           if (stxs.size() == 2) {
             return Expr(new IsBoolean(stxs[1]->parse(env)));
           }
-          throw(RuntimeError(" "));
+          throw(RuntimeError("boolq"));
           break;
         case E_NULLQ:
           if (stxs.size() == 2) {
             return Expr(new IsNull(stxs[1]->parse(env)));
           }
-          throw(RuntimeError(" "));
+          throw(RuntimeError("nullq"));
           break;
         case E_PAIRQ:
           if (stxs.size() == 2) {
             return Expr(new IsPair(stxs[1]->parse(env)));
           }
-          throw(RuntimeError(" "));
+          throw(RuntimeError("pairq"));
           break;
         case E_SYMBOLQ:
           if (stxs.size() == 2) {
             return Expr(new IsSymbol(stxs[1]->parse(env)));
           }
-          throw(RuntimeError(" "));
+          throw(RuntimeError("symbolq"));
           break;
         case E_PROCQ:
           if (stxs.size() != 2) {
@@ -295,6 +300,7 @@ Expr List::parse(Assoc &env) {
           return Expr(new Quote(stxs[1]));
         }
         case E_LAMBDA: {
+          // std::cout << "cnt" << std::endl;
           if (stxs.size() != 3) {
             throw RuntimeError("Wrong parameter number for: " + op);
           }
@@ -314,105 +320,61 @@ Expr List::parse(Assoc &env) {
           return Expr(new Lambda(transformedArgs, stxs[2].parse(env1)));
         }
         case E_LET: {
-          // 检查参数数量是否正确
           if (stxs.size() != 3) {
             throw RuntimeError("Line " + std::to_string(__LINE__) +
                                " expect 2 argument(s), found " +
                                std::to_string(stxs.size() - 1));
           }
+          auto header = (dynamic_cast<List *>(stxs[1].get()))->stxs;
+          vector<std::pair<string, Expr>> transformedHeader;
 
-          // 存储绑定的变量名和值对
-          std::vector<std::pair<std::string, Expr>> binded_vector;
-          auto *binder_list_ptr = dynamic_cast<List *>(stxs[1].get());
+          Assoc env1 = env;
 
-          if (!binder_list_ptr) {
-            throw RuntimeError("Line " + std::to_string(__LINE__) +
-                               ": Invalid binding list for let");
-          }
+          for (auto &syn : header) {
+            auto syn_v = (dynamic_cast<List *>(syn.get()))->stxs;
 
-          // 遍历绑定列表中的每一项
-          for (const auto &stx_tobind_raw : binder_list_ptr->stxs) {
-            auto *stx_tobind = dynamic_cast<List *>(stx_tobind_raw.get());
-            if (!stx_tobind || stx_tobind->stxs.size() != 2) {
-              throw RuntimeError(
-                  "Line " + std::to_string(__LINE__) +
-                  ": Invalid binding in let: each binding must have "
-                  "exactly two elements");
-            }
-
-            // 解析绑定的变量名
-            auto *temp_id =
-                dynamic_cast<Identifier *>(stx_tobind->stxs[0].get());
-            if (!temp_id) {
+            if (syn_v.size() != 2) {
               throw RuntimeError("Line " + std::to_string(__LINE__) +
-                                 ": Invalid variable name in let binding");
+                                 ": Invalid binding in letrec");
             }
+            string bind = (dynamic_cast<Identifier *>(syn_v[0].get()))->s;
+            Expr parsed = syn_v[1].parse(env);
 
-            std::string var_name = temp_id->s;
-
-            // 为绑定的变量名在环境中预留空间
-            env = extend(var_name, NullV(), env);
-
-            // 解析绑定的表达式
-            Expr temp_store = stx_tobind->stxs[1]->parse(env);
-            binded_vector.emplace_back(var_name, temp_store);
+            transformedHeader.push_back(std::make_pair(bind, parsed));
+            env1 = extend(bind, ExpressionV(parsed), env1);
           }
 
-          // 构造 Let 表达式并返回
-          return Expr(new Let(binded_vector, stxs[2]->parse(env)));
+          return Expr(new Let(transformedHeader, stxs[2].parse(env1)));
         }
 
         case E_LETREC: {
-          // 检查参数数量是否正确
           if (stxs.size() != 3) {
-            // std::cout << "I supposed" << std::endl;
             throw RuntimeError("Line " + std::to_string(__LINE__) +
                                " expect 2 argument(s), found " +
                                std::to_string(stxs.size() - 1));
           }
 
-          // 存储绑定的变量名和值对
-          std::vector<std::pair<std::string, Expr>> binded_vector;
-          auto *binder_list_ptr = dynamic_cast<List *>(stxs[1].get());
+          auto header = (dynamic_cast<List *>(stxs[1].get()))->stxs;
+          vector<std::pair<string, Expr>> transformedHeader;
 
-          if (!binder_list_ptr) {
-            // std::cout << "????" << std::endl;
-            throw RuntimeError("Line " + std::to_string(__LINE__) +
-                               ": Invalid binding list for letrec");
-          }
+          Assoc env1 = env;
 
-          // 遍历绑定列表中的每一项
-          for (const auto &stx_tobind_raw : binder_list_ptr->stxs) {
-            auto *stx_tobind = dynamic_cast<List *>(stx_tobind_raw.get());
-            if (!stx_tobind || stx_tobind->stxs.size() != 2) {
-              throw RuntimeError(
-                  "Line " + std::to_string(__LINE__) +
-                  ": Invalid binding in letrec: each binding must "
-                  "have exactly two elements");
-            }
+          for (auto &syn : header) {
+            auto syn_v = (dynamic_cast<List *>(syn.get()))->stxs;
 
-            // 解析绑定的变量名
-            auto *temp_id =
-                dynamic_cast<Identifier *>(stx_tobind->stxs[0].get());
-            if (!temp_id) {
+            if (syn_v.size() != 2) {
               throw RuntimeError("Line " + std::to_string(__LINE__) +
-                                 ": Invalid variable name in letrec binding");
+                                 ": Invalid binding in letrec");
             }
+            string bind = (dynamic_cast<Identifier *>(syn_v[0].get()))->s;
+            Expr parsed = syn_v[1].parse(env);
 
-            std::string var_name = temp_id->s;
-
-            // 为绑定的变量名在环境中预留空间
-            env = extend(var_name, NullV(), env);
-
-            // 解析绑定的表达式
-            Expr temp_store = stx_tobind->stxs[1]->parse(env);
-            binded_vector.emplace_back(var_name, temp_store);
+            transformedHeader.push_back(std::make_pair(bind, parsed));
+            env1 = extend(bind, ExpressionV(parsed), env1);
           }
 
-          // 构造 Letrec 表达式并返回
-          return Expr(new Letrec(binded_vector, stxs[2]->parse(env)));
+          return Expr(new Letrec(transformedHeader, stxs[2].parse(env1)));
         }
-
         default:
           throw RuntimeError("Unsupported operation: " + op);
         }
@@ -421,6 +383,8 @@ Expr List::parse(Assoc &env) {
     vector<Expr> rands;
     for (size_t i = 1; i < stxs.size(); ++i)
       rands.push_back(stxs[i].parse(env));
+    // std::cout << "2" << std::endl;
+
     return Expr(new Apply(new Var(op), rands));
   }
   auto list = dynamic_cast<List *>(stxs[0].get());
@@ -432,6 +396,7 @@ Expr List::parse(Assoc &env) {
       Expr e = stxs[i].parse(env);
       rands.push_back(e);
     }
+    // std::cout << "3" << std::endl;
     return Expr(new Apply(stxs[0].parse(env), rands));
   }
   // std::cout << "we end up here???" << std::endl;
