@@ -12,11 +12,39 @@ extern std ::map<std ::string, ExprType> reserved_words;
 
 Value Let::eval(Assoc &env) {
   Assoc env1 = env;
+  // 1. 对每个绑定进行评估，扩展环境
   for (auto &i : bind) {
     env1 = extend(i.first, i.second.get()->eval(env), env1);
   }
+  // 2. 对 let 体进行求值
   return body.get()->eval(env1);
-} // let expression
+}
+Value Letrec::eval(Assoc &env) {
+  Assoc env1 = env;
+  // 1. 先为所有绑定创建递归环境，所有绑定的值初始化为 NullV()
+  for (auto &i : this->bind) {
+    env1 = extend(i.first, NullV(), env1);
+  }
+
+  Assoc env2 = env;
+
+  // 2. 评估每个绑定的右侧表达式，并将值存入环境
+  for (auto &i : this->bind) {
+    Value val = i.second.get()->eval(env1);
+    if (val.get()->v_type == V_NULL)
+      throw RuntimeError("Unusable variable");
+    env2 = extend(i.first, val, env2);
+  }
+
+  // 3. 递归绑定的值修改
+  for (auto &i : this->bind) {
+    Value val = find(i.first, env2);
+    modify(i.first, i.second.get()->eval(env2), env2);
+  }
+
+  // 4. 求值 Letrec 表达式的体
+  return body.get()->eval(env2);
+}
 
 Value Lambda::eval(Assoc &env) {
   Assoc new_env = env;
@@ -33,6 +61,7 @@ Value Apply::eval(Assoc &e) {
     }
 
     Assoc env1 = Assoc(clos->env);
+    // std::cout << clos->parameters[0] << std::endl;
     for (size_t i = 0; i < clos->parameters.size(); ++i) {
       env1 = extend(clos->parameters[i], this->rand[i].get()->eval(e), env1);
     }
@@ -43,29 +72,6 @@ Value Apply::eval(Assoc &e) {
   throw RuntimeError("fuction calling wrong");
   return clos->e.get()->eval(e);
 } // for function calling
-
-Value Letrec::eval(Assoc &env) {
-  Assoc env1 = env;
-  for (auto &i : this->bind) {
-    env1 = extend(i.first, NullV(), env1);
-  }
-
-  Assoc env2 = env;
-
-  for (auto &i : this->bind) {
-    Value val = i.second.get()->eval(env1);
-    if (val.get()->v_type == V_NULL)
-      throw RuntimeError("Unusable variable");
-    env2 = extend(i.first, val, env2);
-  }
-
-  for (auto &i : this->bind) {
-    Value val = find(i.first, env2);
-    modify(i.first, i.second.get()->eval(env2), env2);
-  }
-
-  return body.get()->eval(env2);
-} // letrec expression
 
 Value Var::eval(Assoc &e) {
   Value res = find(x, e);
